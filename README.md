@@ -162,6 +162,10 @@ The system handles these issues gracefully by:
 
 ## Example Output
 
+The screener generates two report formats:
+
+### 1. Detailed Human-Readable Report
+
 ```
 ================================================================================
 CLINICAL TRIAL ELIGIBILITY SCREENING REPORT
@@ -169,82 +173,171 @@ Trial: Phase II Advanced NSCLC Study
 Date: 2025-11-10
 ================================================================================
 
-Processing patients in parallel (10 threads)...
-Progress: 25/25 patients processed
+SCREENING STATISTICS
+--------------------------------------------------------------------------------
+Total Patients Queried: 3
+  - ELIGIBLE: 1
+  - NOT ELIGIBLE: 1
+  - POTENTIALLY ELIGIBLE: 1
 
-PATIENT SCREENING RESULTS
+1. LIST OF PATIENTS SCREENED
+--------------------------------------------------------------------------------
+Total Patients: 3
+  - Patient ID: patient-123 | Status: ELIGIBLE
+  - Patient ID: patient-456 | Status: NOT ELIGIBLE
+  - Patient ID: patient-789 | Status: POTENTIALLY ELIGIBLE - DATA MISSING
+
+2. DETAILED PATIENT ASSESSMENTS
 --------------------------------------------------------------------------------
 
 Patient ID: patient-123
-Overall Status: ELIGIBLE
+Eligibility: ELIGIBLE
 
-Inclusion Criteria:
-  ✓ Age ≥18 years: MET (Age: 62 years)
-  ✓ NSCLC Diagnosis: MET (Non-small cell lung cancer)
-  ✓ Stage IIIB/IV: MET (Stage IV)
-  ✓ ECOG Status 0-2: MET (ECOG 1)
-  ✓ Hemoglobin ≥9.0 g/dL: MET (11.2 g/dL on 2025-10-15)
-  ✓ Neutrophils ≥1,500/µL: MET (2,100/µL on 2025-10-15)
-  ✓ Platelets ≥100,000/µL: MET (180,000/µL on 2025-10-15)
+Criteria Matched:
+  ✓ Age ≥18 years (Age: 62 years)
+  ✓ NSCLC Diagnosis (Non-small cell lung cancer)
+  ✓ Stage IIIB/IV (Stage IV)
+  ✓ ECOG Status 0-2 (ECOG 1)
+  ✓ Hemoglobin ≥9.0 g/dL (11.2 g/dL on 2025-10-15)
+  ✓ Neutrophils ≥1,500/µL (2,100/µL on 2025-10-15)
+  ✓ Platelets ≥100,000/µL (180,000/µL on 2025-10-15)
+  ✓ No prior systemic therapy
+  ✓ No active brain metastases
 
-Exclusion Criteria:
-  ✓ No prior systemic therapy: MET
-  ✓ No active brain metastases: MET
+Criteria Not Matched:
+  None
 
-Missing Data: None
+Criteria Unknown:
+  None
+
+Missing Data Elements:
+  None
 
 --------------------------------------------------------------------------------
 
 Patient ID: patient-456
-Overall Status: NOT ELIGIBLE
+Eligibility: NOT ELIGIBLE
 Reason: Prior systemic therapy for advanced disease
 
-Inclusion Criteria:
-  ✓ Age ≥18 years: MET (Age: 58 years)
-  ✓ NSCLC Diagnosis: MET (Non-small cell lung cancer)
-  ✓ Stage IIIB/IV: MET (Stage IV)
-  ...
+Criteria Matched:
+  ✓ Age ≥18 years (Age: 58 years)
+  ✓ NSCLC Diagnosis (Non-small cell lung cancer)
+  ✓ Stage IIIB/IV (Stage IV)
+  ✓ No active brain metastases
 
-Exclusion Criteria:
-  ✗ No prior systemic therapy: NOT MET (Pembrolizumab started 2025-09-01)
-  ✓ No active brain metastases: MET
+Criteria Not Matched:
+  ✗ No prior systemic therapy (Pembrolizumab started 2025-09-01)
+
+Criteria Unknown:
+  ? ECOG Status 0-2 (No ECOG status recorded)
+
+Missing Data Elements:
+  - ECOG performance status
+  - ECOG Status 0-2
 
 --------------------------------------------------------------------------------
 
 Patient ID: patient-789
-Overall Status: POTENTIALLY ELIGIBLE - Data Missing
+Eligibility: POTENTIALLY ELIGIBLE - DATA MISSING
 
-Inclusion Criteria:
-  ✓ Age ≥18 years: MET (Age: 55 years)
-  ✓ NSCLC Diagnosis: MET (Non-small cell lung cancer)
-  ✓ Stage IIIB/IV: MET (Stage IIIB)
-  ? ECOG Status 0-2: UNKNOWN (No ECOG status recorded)
-  ? Hemoglobin ≥9.0 g/dL: UNKNOWN (No recent lab results)
-  ? Neutrophils ≥1,500/µL: UNKNOWN (No recent lab results)
-  ? Platelets ≥100,000/µL: UNKNOWN (No recent lab results)
+Criteria Matched:
+  ✓ Age ≥18 years (Age: 55 years)
+  ✓ NSCLC Diagnosis (Non-small cell lung cancer)
+  ✓ Stage IIIB/IV (Stage IIIB)
+  ✓ No prior systemic therapy
+  ✓ No active brain metastases
 
-Exclusion Criteria:
-  ✓ No prior systemic therapy: MET
-  ✓ No active brain metastases: MET
+Criteria Not Matched:
+  None
 
-Missing Data: ECOG performance status, Recent hemoglobin, Recent neutrophil count, Recent platelet count
+Criteria Unknown:
+  ? ECOG Status 0-2 (No ECOG status recorded)
+  ? Hemoglobin ≥9.0 g/dL (No recent lab results)
+  ? Neutrophils ≥1,500/µL (No recent lab results)
+  ? Platelets ≥100,000/µL (No recent lab results)
+
+Missing Data Elements:
+  - ECOG performance status
+  - Recent hemoglobin
+  - Recent neutrophil count
+  - Recent platelet count
 
 ================================================================================
 SUMMARY
 ================================================================================
 
-Total Patients Screened: 25
-  - Eligible: 3
-  - Not Eligible: 18
-  - Potentially Eligible (Data Missing): 4
+Total Patients Screened: 3
+  - Eligible: 1
+  - Not Eligible: 1
+  - Potentially Eligible (Data Missing): 1
 
-Common Missing Data Elements:
-  - ECOG performance status: 15 patients
-  - Recent laboratory results: 8 patients
-  - Disease staging information: 5 patients
-
-Processing completed in 12.3 seconds
 ================================================================================
+```
+
+### 2. Structured JSON-Style Report
+
+```json
+{
+  "patient-123": {
+    "eligibility": "ELIGIBLE",
+    "criteriasMatched": [
+      "Age ≥18 years (Age: 62 years)",
+      "NSCLC Diagnosis (Non-small cell lung cancer)",
+      "Stage IIIB/IV (Stage IV)",
+      "ECOG Status 0-2 (ECOG 1)",
+      "Hemoglobin ≥9.0 g/dL (11.2 g/dL on 2025-10-15)",
+      "Neutrophils ≥1,500/µL (2,100/µL on 2025-10-15)",
+      "Platelets ≥100,000/µL (180,000/µL on 2025-10-15)",
+      "No prior systemic therapy",
+      "No active brain metastases"
+    ],
+    "criteriasNotMatched": [],
+    "criteriasUnknown": [],
+    "missingDataElements": []
+  },
+  "patient-456": {
+    "eligibility": "NOT ELIGIBLE",
+    "criteriasMatched": [
+      "Age ≥18 years (Age: 58 years)",
+      "NSCLC Diagnosis (Non-small cell lung cancer)",
+      "Stage IIIB/IV (Stage IV)",
+      "No active brain metastases"
+    ],
+    "criteriasNotMatched": [
+      "No prior systemic therapy (Pembrolizumab started 2025-09-01)"
+    ],
+    "criteriasUnknown": [
+      "ECOG Status 0-2 (No ECOG status recorded)"
+    ],
+    "missingDataElements": [
+      "ECOG performance status",
+      "ECOG Status 0-2"
+    ]
+  },
+  "patient-789": {
+    "eligibility": "POTENTIALLY ELIGIBLE - DATA MISSING",
+    "criteriasMatched": [
+      "Age ≥18 years (Age: 55 years)",
+      "NSCLC Diagnosis (Non-small cell lung cancer)",
+      "Stage IIIB/IV (Stage IIIB)",
+      "No prior systemic therapy",
+      "No active brain metastases"
+    ],
+    "criteriasNotMatched": [],
+    "criteriasUnknown": [
+      "ECOG Status 0-2 (No ECOG status recorded)",
+      "Hemoglobin ≥9.0 g/dL (No recent lab results)",
+      "Neutrophils ≥1,500/µL (No recent lab results)",
+      "Platelets ≥100,000/µL (No recent lab results)"
+    ],
+    "missingDataElements": [
+      "ECOG performance status",
+      "Recent hemoglobin",
+      "Recent neutrophil count",
+      "Recent platelet count"
+    ]
+  }
+}
 ```
 
 ## Project Architecture

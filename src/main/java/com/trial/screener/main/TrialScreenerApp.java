@@ -25,7 +25,7 @@ public class TrialScreenerApp {
     
     private static final Logger logger = LoggerFactory.getLogger(TrialScreenerApp.class);
     private static final String DEFAULT_FHIR_SERVER_URL = "https://hapi.fhir.org/baseR4";
-    private static final int DEFAULT_MAX_PATIENTS = 100;  // Increased to find more eligible patients
+    private static final int DEFAULT_MAX_PATIENTS = 200;  // Increased to find more eligible patients
     private static final int THREAD_POOL_SIZE = 10; // Number of concurrent patient processing threads
 
     public static void main(String[] args) {
@@ -60,10 +60,11 @@ public class TrialScreenerApp {
             
             logger.info("Completed evaluation of {} patients", assessments.size());
             
-            // Generate and display report
-            logger.info("Generating eligibility report");
-            String report = reportGenerator.generateReport(assessments);
+            // Generate and display reports
+            logger.info("Generating eligibility reports");
             
+            // Detailed human-readable report
+            String report = reportGenerator.generateReport(assessments);
             System.out.println(report);
             
             logger.info("FHIR Clinical Trial Eligibility Screener completed successfully");

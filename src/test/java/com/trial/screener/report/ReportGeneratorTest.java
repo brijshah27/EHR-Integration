@@ -31,8 +31,9 @@ public class ReportGeneratorTest {
         
         assertNotNull(report);
         assertTrue(report.contains("Patient ID: patient-123"));
-        assertTrue(report.contains("Overall Status: ELIGIBLE"));
+        assertTrue(report.contains("Eligibility: ELIGIBLE"));
         assertTrue(report.contains("✓"));
+        assertTrue(report.contains("Criteria Matched:"));
         assertFalse(report.contains("Reason:"));
     }
 
@@ -44,8 +45,9 @@ public class ReportGeneratorTest {
         
         assertNotNull(report);
         assertTrue(report.contains("Patient ID: patient-456"));
-        assertTrue(report.contains("Overall Status: NOT ELIGIBLE"));
+        assertTrue(report.contains("Eligibility: NOT ELIGIBLE"));
         assertTrue(report.contains("Reason: Age below 18"));
+        assertTrue(report.contains("Criteria Not Matched:"));
         assertTrue(report.contains("✗"));
     }
 
@@ -57,9 +59,10 @@ public class ReportGeneratorTest {
         
         assertNotNull(report);
         assertTrue(report.contains("Patient ID: patient-789"));
-        assertTrue(report.contains("Overall Status: POTENTIALLY ELIGIBLE - DATA MISSING"));
+        assertTrue(report.contains("Eligibility: POTENTIALLY ELIGIBLE - DATA MISSING"));
         assertTrue(report.contains("?"));
-        assertTrue(report.contains("Missing Data:"));
+        assertTrue(report.contains("Criteria Unknown:"));
+        assertTrue(report.contains("Missing Data Elements:"));
         assertTrue(report.contains("ECOG performance status"));
     }
 
@@ -76,8 +79,7 @@ public class ReportGeneratorTest {
         
         String report = reportGenerator.generateReport(List.of(assessment));
         
-        assertTrue(report.contains("Inclusion Criteria:"));
-        assertTrue(report.contains("Exclusion Criteria:"));
+        assertTrue(report.contains("Criteria Matched:"));
         assertTrue(report.contains("Age ≥18 years"));
         assertTrue(report.contains("No Prior Therapy"));
     }
@@ -155,8 +157,9 @@ public class ReportGeneratorTest {
         
         String report = reportGenerator.generateReport(List.of(assessment));
         
-        assertTrue(report.contains("Common Missing Data Elements:"));
-        assertTrue(report.contains("ECOG performance status: 1 patient"));
+        // The new format shows missing data in the patient section
+        assertTrue(report.contains("Missing Data Elements:"));
+        assertTrue(report.contains("ECOG performance status"));
     }
 
     @Test
@@ -197,9 +200,10 @@ public class ReportGeneratorTest {
         
         String report = reportGenerator.generateReport(assessments);
         
-        assertTrue(report.contains("Common Missing Data Elements:"));
-        assertTrue(report.contains("ECOG performance status: 2 patients"));
-        assertTrue(report.contains("Hemoglobin lab result: 2 patients"));
+        // The new format shows missing data for each patient
+        assertTrue(report.contains("Missing Data Elements:"));
+        assertTrue(report.contains("ECOG performance status"));
+        assertTrue(report.contains("Hemoglobin lab result"));
     }
 
     @Test
@@ -237,13 +241,9 @@ public class ReportGeneratorTest {
         
         String report = reportGenerator.generateReport(assessments);
         
-        // ECOG should appear before Hemoglobin (higher count)
-        int ecogIndex = report.indexOf("ECOG performance status: 3 patients");
-        int hemoglobinIndex = report.indexOf("Hemoglobin lab result: 1 patient");
-        
-        assertTrue(ecogIndex > 0);
-        assertTrue(hemoglobinIndex > 0);
-        assertTrue(ecogIndex < hemoglobinIndex);
+        // The new format shows missing data for each patient
+        assertTrue(report.contains("ECOG performance status"));
+        assertTrue(report.contains("Hemoglobin lab result"));
     }
 
     // ========== Report Formatting Tests ==========
@@ -299,6 +299,100 @@ public class ReportGeneratorTest {
         String report = reportGenerator.generateReport(null);
         
         assertEquals("No patients assessed.", report);
+    }
+
+    // ========== Structured Report Tests ==========
+
+    @Test
+    public void testGenerateStructuredReport_SinglePatient() {
+        EligibilityAssessment assessment = createEligibleAssessment("patient-123");
+        
+        String report = reportGenerator.generateStructuredReport(List.of(assessment));
+        
+        assertNotNull(report);
+        assertTrue(report.contains("\"patient-123\""));
+        assertTrue(report.contains("\"eligibility\": \"ELIGIBLE\""));
+        assertTrue(report.contains("\"criteriasMatched\""));
+        assertTrue(report.contains("\"criteriasNotMatched\""));
+        assertTrue(report.contains("\"criteriasUnknown\""));
+        assertTrue(report.contains("\"missingDataElements\""));
+    }
+
+    @Test
+    public void testGenerateStructuredReport_MultiplePatients() {
+        List<EligibilityAssessment> assessments = new ArrayList<>();
+        assessments.add(createEligibleAssessment("patient-1"));
+        assessments.add(createNotEligibleAssessment("patient-2"));
+        assessments.add(createPotentiallyEligibleAssessment("patient-3"));
+        
+        String report = reportGenerator.generateStructuredReport(assessments);
+        
+        assertTrue(report.contains("\"patient-1\""));
+        assertTrue(report.contains("\"patient-2\""));
+        assertTrue(report.contains("\"patient-3\""));
+        assertTrue(report.contains("\"eligibility\": \"ELIGIBLE\""));
+        assertTrue(report.contains("\"eligibility\": \"NOT ELIGIBLE\""));
+        assertTrue(report.contains("\"eligibility\": \"POTENTIALLY ELIGIBLE - DATA MISSING\""));
+    }
+
+    @Test
+    public void testGenerateStructuredReport_EmptyList() {
+        String report = reportGenerator.generateStructuredReport(new ArrayList<>());
+        
+        assertEquals("{}", report);
+    }
+
+    @Test
+    public void testGenerateStructuredReport_NullList() {
+        String report = reportGenerator.generateStructuredReport(null);
+        
+        assertEquals("{}", report);
+    }
+
+    @Test
+    public void testGenerateStructuredReport_CriteriaCategories() {
+        EligibilityAssessment assessment = new EligibilityAssessment("patient-100");
+        
+        // Add MET criteria
+        assessment.addCriterion(new EligibilityCriterion(
+            "Age ≥18 years", CriterionType.INCLUSION, CriterionStatus.MET, "Age: 50 years"));
+        
+        // Add NOT_MET criteria
+        assessment.addCriterion(new EligibilityCriterion(
+            "Hemoglobin ≥9.0 g/dL", CriterionType.INCLUSION, CriterionStatus.NOT_MET, "Hemoglobin: 8.5 g/dL"));
+        
+        // Add UNKNOWN criteria
+        EligibilityCriterion unknownCriterion = new EligibilityCriterion(
+            "ECOG Status", CriterionType.INCLUSION, CriterionStatus.UNKNOWN, "Not recorded");
+        unknownCriterion.addMissingData("ECOG performance status");
+        assessment.addCriterion(unknownCriterion);
+        
+        assessment.determineOverallStatus();
+        
+        String report = reportGenerator.generateStructuredReport(List.of(assessment));
+        
+        // Check that the report is valid JSON structure
+        assertNotNull(report);
+        assertTrue(report.contains("patient-100"));
+        assertTrue(report.contains("eligibility"));
+        assertTrue(report.contains("criteriasMatched"));
+        assertTrue(report.contains("criteriasNotMatched"));
+        assertTrue(report.contains("criteriasUnknown"));
+        assertTrue(report.contains("missingDataElements"));
+    }
+
+    @Test
+    public void testGenerateStructuredReport_JsonFormatting() {
+        EligibilityAssessment assessment = createEligibleAssessment("patient-1");
+        
+        String report = reportGenerator.generateStructuredReport(List.of(assessment));
+        
+        // Check JSON structure
+        assertTrue(report.startsWith("{"));
+        assertTrue(report.endsWith("}\n"));
+        assertTrue(report.contains("["));
+        assertTrue(report.contains("]"));
+        assertTrue(report.contains(":"));
     }
 
     // ========== Helper Methods ==========

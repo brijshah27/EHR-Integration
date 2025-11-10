@@ -91,7 +91,7 @@ public class FhirClient {
      * Search for patients by specific SNOMED codes
      */
     private void searchByCode(Set<String> patientIds, int maxPatients) {
-        // Extended list of SNOMED codes for lung cancer
+        // Extended list of SNOMED codes for lung cancer, prioritizing advanced stages
         String[] snomedCodes = {
             "254637007",  // Non-small cell lung cancer
             "424132000",  // Malignant tumor of lung
@@ -99,14 +99,16 @@ public class FhirClient {
             "162573006",  // Suspected lung cancer
             "254632001",  // Small cell carcinoma of lung
             "423121009",  // Adenocarcinoma of lung
-            "35917007"    // Squamous cell carcinoma of lung
+            "35917007",   // Squamous cell carcinoma of lung
+            "94222008",   // Secondary malignant neoplasm of lung
+            "315058005"   // Metastatic malignant neoplasm to lung
         };
         
         Bundle bundle = executeWithRetry(() -> {
             return client.search()
                     .forResource(Condition.class)
                     .where(Condition.CODE.exactly().codes(snomedCodes))
-                    .count(maxPatients * 2)  // Request more to account for duplicates
+                    .count(maxPatients * 3)  // Request more to account for duplicates and filtering
                     .returnBundle(Bundle.class)
                     .execute();
         }, "search for lung cancer patients by code");

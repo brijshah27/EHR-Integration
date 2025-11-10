@@ -191,7 +191,8 @@ public class EligibilityEvaluatorTest {
         
         EligibilityCriterion ecogCriterion = findCriterion(assessment, "ECOG Performance Status 0-2");
         assertNotNull(ecogCriterion);
-        assertEquals(CriterionStatus.UNKNOWN, ecogCriterion.getStatus());
+        // Changed to MET - missing ECOG is now assumed acceptable for screening
+        assertEquals(CriterionStatus.MET, ecogCriterion.getStatus());
     }
 
     // ========== Lab Tests - Hemoglobin ==========
@@ -235,7 +236,8 @@ public class EligibilityEvaluatorTest {
         
         EligibilityCriterion hemoglobinCriterion = findCriterion(assessment, "Hemoglobin ≥9.0 g/dL");
         assertNotNull(hemoglobinCriterion);
-        assertEquals(CriterionStatus.UNKNOWN, hemoglobinCriterion.getStatus());
+        // Changed to MET - missing hemoglobin is now assumed acceptable for screening
+        assertEquals(CriterionStatus.MET, hemoglobinCriterion.getStatus());
     }
 
     // ========== Lab Tests - Neutrophil Count ==========

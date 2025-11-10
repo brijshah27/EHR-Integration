@@ -1,16 +1,13 @@
 package com.trial.screener.report;
 
 import com.trial.screener.model.CriterionStatus;
-import com.trial.screener.model.CriterionType;
 import com.trial.screener.model.EligibilityAssessment;
 import com.trial.screener.model.EligibilityCriterion;
 import com.trial.screener.model.EligibilityStatus;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Generates formatted eligibility screening reports
@@ -40,21 +37,47 @@ public class ReportGenerator {
         report.append("Date: ").append(LocalDate.now().format(DATE_FORMATTER)).append("\n");
         report.append(SEPARATOR).append("\n\n");
 
-        // Patient screening results
-        report.append("PATIENT SCREENING RESULTS\n");
+        // Summary statistics
+        long eligible = assessments.stream()
+                .filter(a -> a.getOverallStatus() == EligibilityStatus.ELIGIBLE)
+                .count();
+        long notEligible = assessments.stream()
+                .filter(a -> a.getOverallStatus() == EligibilityStatus.NOT_ELIGIBLE)
+                .count();
+        long potentiallyEligible = assessments.stream()
+                .filter(a -> a.getOverallStatus() == EligibilityStatus.POTENTIALLY_ELIGIBLE)
+                .count();
+
+        report.append("SCREENING STATISTICS\n");
+        report.append(SUB_SEPARATOR).append("\n");
+        report.append("Total Patients Queried: ").append(assessments.size()).append("\n");
+        report.append("  - ELIGIBLE: ").append(eligible).append("\n");
+        report.append("  - NOT ELIGIBLE: ").append(notEligible).append("\n");
+        report.append("  - POTENTIALLY ELIGIBLE: ").append(potentiallyEligible).append("\n");
+        report.append("\n");
+
+        // Summary of patients screened
+        report.append("1. LIST OF PATIENTS SCREENED\n");
+        report.append(SUB_SEPARATOR).append("\n");
+        report.append("Total Patients: ").append(assessments.size()).append("\n");
+        for (EligibilityAssessment assessment : assessments) {
+            report.append("  - Patient ID: ").append(assessment.getPatientId())
+                  .append(" | Status: ").append(formatStatus(assessment.getOverallStatus()))
+                  .append("\n");
+        }
+        report.append("\n");
+
+        // Detailed patient screening results
+        report.append("2. DETAILED PATIENT ASSESSMENTS\n");
         report.append(SUB_SEPARATOR).append("\n\n");
 
         for (EligibilityAssessment assessment : assessments) {
-            report.append(formatPatientAssessment(assessment));
+            report.append(formatDetailedPatientAssessment(assessment));
             report.append("\n").append(SUB_SEPARATOR).append("\n\n");
         }
 
-        // Summary
+        // Overall Summary
         report.append(generateSummary(assessments));
-
-        // Missing data summary
-        report.append("\n");
-        report.append(generateMissingDataSummary(assessments));
 
         report.append(SEPARATOR).append("\n");
 
@@ -62,99 +85,93 @@ public class ReportGenerator {
     }
 
     /**
-     * Format individual patient assessment with criteria details
+     * Format detailed patient assessment showing eligibility, criteria matched/not matched, and missing data
      * @param assessment Patient eligibility assessment
      * @return Formatted patient assessment string
      */
-    private String formatPatientAssessment(EligibilityAssessment assessment) {
+    private String formatDetailedPatientAssessment(EligibilityAssessment assessment) {
         StringBuilder sb = new StringBuilder();
 
         // Patient header
         sb.append("Patient ID: ").append(assessment.getPatientId()).append("\n");
-        sb.append("Overall Status: ").append(formatStatus(assessment.getOverallStatus()));
+        sb.append("Eligibility: ").append(formatStatus(assessment.getOverallStatus()));
 
         if (assessment.getIneligibilityReason() != null && !assessment.getIneligibilityReason().isEmpty()) {
             sb.append("\nReason: ").append(assessment.getIneligibilityReason());
         }
         sb.append("\n\n");
 
-        // Inclusion criteria
-        List<EligibilityCriterion> inclusionCriteria = assessment.getCriteria().stream()
-                .filter(c -> c.getType() == CriterionType.INCLUSION)
+        // Criteria Matched (MET)
+        List<EligibilityCriterion> metCriteria = assessment.getCriteria().stream()
+                .filter(c -> c.getStatus() == CriterionStatus.MET)
                 .toList();
 
-        if (!inclusionCriteria.isEmpty()) {
-            sb.append("Inclusion Criteria:\n");
-            for (EligibilityCriterion criterion : inclusionCriteria) {
-                sb.append(formatCriterion(criterion));
+        sb.append("Criteria Matched:\n");
+        if (metCriteria.isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (EligibilityCriterion criterion : metCriteria) {
+                sb.append("  ✓ ").append(criterion.getName());
+                if (criterion.getDetails() != null && !criterion.getDetails().isEmpty()) {
+                    sb.append(" (").append(criterion.getDetails()).append(")");
+                }
+                sb.append("\n");
             }
-            sb.append("\n");
         }
-
-        // Exclusion criteria
-        List<EligibilityCriterion> exclusionCriteria = assessment.getCriteria().stream()
-                .filter(c -> c.getType() == CriterionType.EXCLUSION)
-                .toList();
-
-        if (!exclusionCriteria.isEmpty()) {
-            sb.append("Exclusion Criteria:\n");
-            for (EligibilityCriterion criterion : exclusionCriteria) {
-                sb.append(formatCriterion(criterion));
-            }
-            sb.append("\n");
-        }
-
-        // Missing data
-        if (assessment.getMissingDataElements() != null && !assessment.getMissingDataElements().isEmpty()) {
-            sb.append("Missing Data: ");
-            sb.append(String.join(", ", assessment.getMissingDataElements()));
-            sb.append("\n");
-        }
-
-        return sb.toString();
-    }
-
-    /**
-     * Format a single criterion with status symbol and details
-     * @param criterion Eligibility criterion
-     * @return Formatted criterion string
-     */
-    private String formatCriterion(EligibilityCriterion criterion) {
-        StringBuilder sb = new StringBuilder();
-        
-        // Status symbol
-        String symbol = getStatusSymbol(criterion.getStatus());
-        sb.append("  ").append(symbol).append(" ");
-        
-        // Criterion name
-        sb.append(criterion.getName()).append(": ");
-        
-        // Status
-        sb.append(criterion.getStatus());
-        
-        // Details
-        if (criterion.getDetails() != null && !criterion.getDetails().isEmpty()) {
-            sb.append(" (").append(criterion.getDetails()).append(")");
-        }
-        
         sb.append("\n");
-        
+
+        // Criteria Not Matched (NOT_MET)
+        List<EligibilityCriterion> notMetCriteria = assessment.getCriteria().stream()
+                .filter(c -> c.getStatus() == CriterionStatus.NOT_MET)
+                .toList();
+
+        sb.append("Criteria Not Matched:\n");
+        if (notMetCriteria.isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (EligibilityCriterion criterion : notMetCriteria) {
+                sb.append("  ✗ ").append(criterion.getName());
+                if (criterion.getDetails() != null && !criterion.getDetails().isEmpty()) {
+                    sb.append(" (").append(criterion.getDetails()).append(")");
+                }
+                sb.append("\n");
+            }
+        }
+        sb.append("\n");
+
+        // Criteria Unknown
+        List<EligibilityCriterion> unknownCriteria = assessment.getCriteria().stream()
+                .filter(c -> c.getStatus() == CriterionStatus.UNKNOWN)
+                .toList();
+
+        sb.append("Criteria Unknown:\n");
+        if (unknownCriteria.isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (EligibilityCriterion criterion : unknownCriteria) {
+                sb.append("  ? ").append(criterion.getName());
+                if (criterion.getDetails() != null && !criterion.getDetails().isEmpty()) {
+                    sb.append(" (").append(criterion.getDetails()).append(")");
+                }
+                sb.append("\n");
+            }
+        }
+        sb.append("\n");
+
+        // Missing Data Elements
+        sb.append("Missing Data Elements:\n");
+        if (assessment.getMissingDataElements() == null || assessment.getMissingDataElements().isEmpty()) {
+            sb.append("  None\n");
+        } else {
+            for (String missingData : assessment.getMissingDataElements()) {
+                sb.append("  - ").append(missingData).append("\n");
+            }
+        }
+
         return sb.toString();
     }
 
-    /**
-     * Get status symbol for criterion status
-     * @param status Criterion status
-     * @return Symbol string
-     */
-    private String getStatusSymbol(CriterionStatus status) {
-        return switch (status) {
-            case MET -> "✓";
-            case NOT_MET -> "✗";
-            case UNKNOWN -> "?";
-            default -> " ";
-        };
-    }
+
 
     /**
      * Format eligibility status for display
@@ -201,42 +218,5 @@ public class ReportGenerator {
         return sb.toString();
     }
 
-    /**
-     * Generate summary of missing data elements across all patients
-     * @param assessments List of patient eligibility assessments
-     * @return Formatted missing data summary string
-     */
-    private String generateMissingDataSummary(List<EligibilityAssessment> assessments) {
-        StringBuilder sb = new StringBuilder();
 
-        // Count occurrences of each missing data element
-        Map<String, Integer> missingDataCounts = new HashMap<>();
-        
-        for (EligibilityAssessment assessment : assessments) {
-            if (assessment.getMissingDataElements() != null) {
-                for (String missingData : assessment.getMissingDataElements()) {
-                    missingDataCounts.put(missingData, 
-                        missingDataCounts.getOrDefault(missingData, 0) + 1);
-                }
-            }
-        }
-
-        if (missingDataCounts.isEmpty()) {
-            return "";
-        }
-
-        sb.append("\nCommon Missing Data Elements:\n");
-        
-        // Sort by count (descending) and display
-        missingDataCounts.entrySet().stream()
-                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
-                .forEach(entry -> {
-                    sb.append("  - ").append(entry.getKey())
-                      .append(": ").append(entry.getValue())
-                      .append(entry.getValue() == 1 ? " patient" : " patients")
-                      .append("\n");
-                });
-
-        return sb.toString();
-    }
 }
